@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, User, Menu, X, ChefHat } from "lucide-react";
+import { Search, Bell, Menu, X, ChefHat, Flame } from "lucide-react";
+import { currentUser } from "@/data/social";
 
 const navLinks = [
   { to: "/", label: "Home" },
+  { to: "/feed", label: "Feed" },
+  { to: "/reels", label: "Reels" },
   { to: "/scan", label: "Scan" },
   { to: "/recipes", label: "Recipes" },
   { to: "/generator", label: "Generate" },
@@ -14,6 +17,9 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
+
+  // Hide navbar on reels page
+  if (location.pathname === "/reels") return null;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
@@ -44,15 +50,33 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Streak indicator */}
+          <div className="flex items-center gap-1 text-accent text-xs font-bold">
+            <Flame className="w-4 h-4" />
+            {currentUser.streak}
+          </div>
+
           <button
             onClick={() => setSearchOpen(!searchOpen)}
             className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <Search className="w-5 h-5" />
           </button>
-          <button className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <User className="w-5 h-5" />
-          </button>
+          <Link
+            to="/notifications"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative"
+          >
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-destructive" />
+          </Link>
+          <Link
+            to="/profile"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">
+              AK
+            </div>
+          </Link>
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -107,6 +131,13 @@ const Navbar = () => {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                to="/achievements"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                🏆 Achievements
+              </Link>
             </div>
           </motion.div>
         )}

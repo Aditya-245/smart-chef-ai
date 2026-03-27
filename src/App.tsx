@@ -9,6 +9,11 @@ import Index from "./pages/Index";
 import ScanPage from "./pages/ScanPage";
 import RecipesPage from "./pages/RecipesPage";
 import GeneratorPage from "./pages/GeneratorPage";
+import FeedPage from "./pages/FeedPage";
+import ReelsPage from "./pages/ReelsPage";
+import ProfilePage from "./pages/ProfilePage";
+import AchievementsPage from "./pages/AchievementsPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +30,11 @@ const App = () => (
           <Route path="/scan" element={<ScanPage />} />
           <Route path="/recipes" element={<RecipesPage />} />
           <Route path="/generator" element={<GeneratorPage />} />
+          <Route path="/feed" element={<FeedPage />} />
+          <Route path="/reels" element={<ReelsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/achievements" element={<AchievementsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <BottomNav />
