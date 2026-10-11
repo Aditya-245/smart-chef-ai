@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Heart, MessageCircle, UserPlus, Trophy, Flame, Check } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,10 +16,20 @@ const iconMap: Record<Notification["type"], React.ReactNode> = {
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState(sampleNotifications);
+  const navigate = useNavigate();
   const unread = notifications.filter(n => !n.read).length;
 
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const openNotification = (notif: Notification) => {
+    setNotifications(prev => prev.map(n => (n.id === notif.id ? { ...n, read: true } : n)));
+    if (notif.type === "like" || notif.type === "comment" || notif.type === "follow") {
+      navigate("/feed");
+    } else {
+      navigate("/achievements");
+    }
   };
 
   return (
@@ -43,7 +54,8 @@ const NotificationsPage = () => {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04 }}
-              className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${!notif.read ? "bg-primary/5" : "bg-card"}`}
+              onClick={() => openNotification(notif)}
+              className={`flex items-start gap-3 p-3 rounded-2xl transition-colors cursor-pointer hover:bg-muted ${!notif.read ? "bg-primary/5" : "bg-card"}`}
             >
               {notif.userName ? (
                 <Avatar className="w-9 h-9 flex-shrink-0">

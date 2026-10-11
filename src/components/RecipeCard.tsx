@@ -1,16 +1,36 @@
 import { motion } from "framer-motion";
-import { Clock, Flame, Star, ChefHat } from "lucide-react";
+import { Clock, Flame, Star, Sparkles } from "lucide-react";
+
+export interface NutritionInfo {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+}
 
 export interface Recipe {
   id: string;
   title: string;
   image: string;
   time: string;
-  calories: string;
+  /** Optional: the recipe index does not carry calorie data. */
+  calories?: string;
   difficulty: "Easy" | "Medium" | "Hard";
-  rating: number;
+  /** Optional: only sample recipes have a user rating. */
+  rating?: number;
   cuisine: string;
   isVeg: boolean;
+  servings: number;
+  ingredients: string[];
+  steps: string[];
+  /** Optional: only sample recipes ship macro data. */
+  nutrition?: NutritionInfo;
+  tags: string[];
+  /** Match confidence (0-100) when the recipe came from the ingredient matcher. */
+  matchScore?: number;
+  /** Optional link back to the original recipe source. */
+  sourceUrl?: string;
 }
 
 interface RecipeCardProps {
@@ -38,6 +58,9 @@ const RecipeCard = ({ recipe, index = 0, onClick }: RecipeCardProps) => {
         <img
           src={recipe.image}
           alt={recipe.title}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 to-transparent" />
@@ -53,22 +76,31 @@ const RecipeCard = ({ recipe, index = 0, onClick }: RecipeCardProps) => {
           <h3 className="font-semibold text-primary-foreground text-sm leading-snug line-clamp-2">{recipe.title}</h3>
         </div>
       </div>
-      <div className="p-3 flex items-center justify-between">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <span className="flex items-center gap-1 text-xs">
-            <Clock className="w-3.5 h-3.5" />
-            {recipe.time}
-          </span>
-          <span className="flex items-center gap-1 text-xs">
-            <Flame className="w-3.5 h-3.5" />
-            {recipe.calories}
-          </span>
+        <div className="p-3 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <span className="flex items-center gap-1 text-xs">
+              <Clock className="w-3.5 h-3.5" />
+              {recipe.time}
+            </span>
+            {recipe.calories && (
+              <span className="flex items-center gap-1 text-xs">
+                <Flame className="w-3.5 h-3.5" />
+                {recipe.calories}
+              </span>
+            )}
+          </div>
+          {recipe.rating !== undefined ? (
+            <span className="flex items-center gap-1 text-xs font-medium text-foreground">
+              <Star className="w-3.5 h-3.5 fill-warm text-warm" />
+              {recipe.rating}
+            </span>
+          ) : recipe.matchScore !== undefined ? (
+            <span className="flex items-center gap-1 text-xs font-medium text-primary">
+              <Sparkles className="w-3.5 h-3.5" />
+              {recipe.matchScore}%
+            </span>
+          ) : null}
         </div>
-        <span className="flex items-center gap-1 text-xs font-medium text-foreground">
-          <Star className="w-3.5 h-3.5 fill-warm text-warm" />
-          {recipe.rating}
-        </span>
-      </div>
     </motion.div>
   );
 };

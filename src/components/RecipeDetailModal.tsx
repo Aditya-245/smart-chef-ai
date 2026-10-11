@@ -1,36 +1,21 @@
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Clock, Flame, Star, Users, ChefHat } from "lucide-react";
+import { X, Clock, Flame, Star, Users, ChefHat, Droplets, Wheat, Beef, Sparkles } from "lucide-react";
 import type { Recipe } from "./RecipeCard";
+import CookingMode from "./CookingMode";
 
 interface RecipeDetailModalProps {
   recipe: Recipe | null;
   onClose: () => void;
 }
 
-const sampleSteps = [
-  "Heat oil in a heavy-bottomed pan over medium flame.",
-  "Add whole spices (bay leaf, cardamom, cinnamon) and let them splutter.",
-  "Add finely chopped onions and sauté until golden brown (8-10 mins).",
-  "Add ginger-garlic paste and cook for 2 minutes until raw smell disappears.",
-  "Add tomato puree, turmeric, red chili powder, and salt. Cook for 5 minutes.",
-  "Add the main ingredient and mix well. Cook on low flame for 15-20 minutes.",
-  "Garnish with fresh coriander and serve hot with rice or roti."
-];
-
-const sampleIngredients = [
-  "2 cups main ingredient",
-  "2 large onions, finely chopped",
-  "3 tomatoes, pureed",
-  "1 tbsp ginger-garlic paste",
-  "1 tsp turmeric powder",
-  "1 tsp red chili powder",
-  "1 tsp garam masala",
-  "Salt to taste",
-  "Fresh coriander for garnish",
-  "3 tbsp oil or ghee",
-];
-
 const RecipeDetailModal = ({ recipe, onClose }: RecipeDetailModalProps) => {
+  const [cooking, setCooking] = useState(false);
+
+  if (cooking && recipe) {
+    return <CookingMode recipe={recipe} onClose={() => setCooking(false)} />;
+  }
+
   return (
     <AnimatePresence>
       {recipe && (
@@ -51,7 +36,14 @@ const RecipeDetailModal = ({ recipe, onClose }: RecipeDetailModalProps) => {
           >
             {/* Header image */}
             <div className="relative h-56 md:h-72">
-              <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover" />
+              <img
+                src={recipe.image}
+                alt={recipe.title}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
               <button
                 onClick={onClose}
@@ -67,12 +59,19 @@ const RecipeDetailModal = ({ recipe, onClose }: RecipeDetailModalProps) => {
 
             <div className="p-6 space-y-6">
               {/* Stats */}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { icon: Clock, label: recipe.time, sub: "Time" },
-                  { icon: Flame, label: recipe.calories, sub: "Calories" },
-                  { icon: Star, label: String(recipe.rating), sub: "Rating" },
-                  { icon: Users, label: "2-4", sub: "Servings" },
+                  ...(recipe.calories
+                    ? [{ icon: Flame, label: recipe.calories, sub: "Calories" }]
+                    : []),
+                  ...(recipe.rating !== undefined
+                    ? [{ icon: Star, label: String(recipe.rating), sub: "Rating" }]
+                    : []),
+                  ...(recipe.matchScore !== undefined
+                    ? [{ icon: Sparkles, label: `${recipe.matchScore}%`, sub: "Match" }]
+                    : []),
+                  { icon: Users, label: String(recipe.servings), sub: "Servings" },
                 ].map((stat) => (
                   <div key={stat.sub} className="flex flex-col items-center gap-1 p-3 rounded-2xl bg-muted">
                     <stat.icon className="w-5 h-5 text-primary" />
@@ -82,11 +81,35 @@ const RecipeDetailModal = ({ recipe, onClose }: RecipeDetailModalProps) => {
                 ))}
               </div>
 
+              {/* Nutrition Breakdown */}
+              {recipe.nutrition && (
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Nutrition per Serving</h3>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[
+                      { label: "Calories", value: recipe.nutrition.calories, unit: "kcal", color: "text-orange-500 bg-orange-500/10", icon: Flame },
+                      { label: "Protein", value: recipe.nutrition.protein, unit: "g", color: "text-red-500 bg-red-500/10", icon: Beef },
+                      { label: "Carbs", value: recipe.nutrition.carbs, unit: "g", color: "text-amber-500 bg-amber-500/10", icon: Wheat },
+                      { label: "Fat", value: recipe.nutrition.fat, unit: "g", color: "text-blue-500 bg-blue-500/10", icon: Droplets },
+                      { label: "Fiber", value: recipe.nutrition.fiber, unit: "g", color: "text-green-500 bg-green-500/10", icon: Droplets },
+                    ].map((item) => (
+                      <div key={item.label} className="flex flex-col items-center gap-1 p-2 rounded-xl bg-muted">
+                        <div className={`w-8 h-8 rounded-lg ${item.color} flex items-center justify-center`}>
+                          <item.icon className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-bold text-foreground">{item.value}{item.unit}</span>
+                        <span className="text-[9px] text-muted-foreground">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Ingredients */}
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-3">Ingredients</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-3">Ingredients ({recipe.ingredients.length})</h3>
                 <div className="space-y-2">
-                  {sampleIngredients.map((ing, i) => (
+                  {recipe.ingredients.map((ing, i) => (
                     <div key={i} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
                       <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                       <span className="text-sm text-foreground">{ing}</span>
@@ -97,9 +120,9 @@ const RecipeDetailModal = ({ recipe, onClose }: RecipeDetailModalProps) => {
 
               {/* Steps */}
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-3">Steps</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-3">Instructions ({recipe.steps.length} steps)</h3>
                 <div className="space-y-4">
-                  {sampleSteps.map((step, i) => (
+                  {recipe.steps.map((step, i) => (
                     <div key={i} className="flex gap-4">
                       <div className="w-8 h-8 rounded-full bg-sage-light flex items-center justify-center shrink-0">
                         <span className="text-sm font-semibold text-primary">{i + 1}</span>
@@ -111,10 +134,15 @@ const RecipeDetailModal = ({ recipe, onClose }: RecipeDetailModalProps) => {
               </div>
 
               {/* Start cooking button */}
-              <button className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-                <ChefHat className="w-5 h-5" />
-                Start Cooking Mode
-              </button>
+              {recipe.steps.length > 0 && (
+                <button
+                  onClick={() => setCooking(true)}
+                  className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                >
+                  <ChefHat className="w-5 h-5" />
+                  Start Cooking Mode
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>

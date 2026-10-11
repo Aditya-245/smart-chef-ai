@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, Menu, X, ChefHat, Flame } from "lucide-react";
+import { Search, Bell, Menu, X, ChefHat, Flame, MessageSquare } from "lucide-react";
 import { currentUser } from "@/data/social";
 
 const navLinks = [
   { to: "/", label: "Home" },
   { to: "/feed", label: "Feed" },
-  { to: "/reels", label: "Reels" },
   { to: "/scan", label: "Scan" },
   { to: "/recipes", label: "Recipes" },
   { to: "/generator", label: "Generate" },
@@ -16,10 +15,19 @@ const navLinks = [
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
   const location = useLocation();
 
   // Hide navbar on reels page
   if (location.pathname === "/reels") return null;
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    navigate(q ? `/recipes?q=${encodeURIComponent(q)}` : "/recipes");
+    setSearchOpen(false);
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
@@ -63,6 +71,13 @@ const Navbar = () => {
             <Search className="w-5 h-5" />
           </button>
           <Link
+            to="/chat"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Messages"
+          >
+            <MessageSquare className="w-5 h-5" />
+          </Link>
+          <Link
             to="/notifications"
             className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative"
           >
@@ -96,12 +111,22 @@ const Navbar = () => {
             className="border-t border-border/50 overflow-hidden"
           >
             <div className="container py-3">
-              <input
-                type="text"
-                placeholder="Search recipes, ingredients..."
-                className="w-full bg-muted rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-muted-foreground"
-                autoFocus
-              />
+              <form onSubmit={handleSearch} className="flex gap-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search recipes, ingredients..."
+                  className="w-full bg-muted rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-muted-foreground"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="flex-shrink-0 px-5 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                >
+                  Search
+                </button>
+              </form>
             </div>
           </motion.div>
         )}
@@ -131,6 +156,13 @@ const Navbar = () => {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                to="/chat"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                💬 Messages
+              </Link>
               <Link
                 to="/achievements"
                 onClick={() => setIsOpen(false)}

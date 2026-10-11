@@ -74,7 +74,7 @@ const Index = () => {
 
       {/* Trending */}
       <section className="container mt-10">
-        <SectionTitle title="Trending Now 🔥" subtitle="Most popular recipes this week" action="See all" />
+        <SectionTitle title="Trending Now 🔥" subtitle="Most popular recipes this week" action="See all" to="/recipes" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {trendingRecipes.map((recipe, i) => (
             <RecipeCard key={recipe.id} recipe={recipe} index={i} onClick={() => setSelectedRecipe(recipe)} />

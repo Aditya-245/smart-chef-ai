@@ -1,10 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Clapperboard, Newspaper, Sparkles, User } from "lucide-react";
+import { Home, Newspaper, MessageSquare, Sparkles, User } from "lucide-react";
 
 const items = [
   { to: "/", icon: Home, label: "Home" },
   { to: "/feed", icon: Newspaper, label: "Feed" },
-  { to: "/reels", icon: Clapperboard, label: "Reels" },
+  { to: "/chat", icon: MessageSquare, label: "Chat" },
   { to: "/generator", icon: Sparkles, label: "Generate" },
   { to: "/profile", icon: User, label: "Profile" },
 ];

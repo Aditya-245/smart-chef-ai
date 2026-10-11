@@ -3,7 +3,6 @@ import recipe2 from "@/assets/recipe-2.jpg";
 import recipe3 from "@/assets/recipe-3.jpg";
 import recipe4 from "@/assets/recipe-4.jpg";
 import recipe5 from "@/assets/recipe-5.jpg";
-import recipe6 from "@/assets/recipe-6.jpg";
 
 export interface SocialPost {
   id: string;
@@ -27,22 +26,6 @@ export interface Comment {
   userAvatar: string;
   text: string;
   createdAt: string;
-}
-
-export interface Reel {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  videoUrl: string;
-  thumbnailUrl: string;
-  dishName: string;
-  caption: string;
-  hashtags: string[];
-  likes: number;
-  comments: number;
-  liked: boolean;
-  following: boolean;
 }
 
 export interface UserProfile {
@@ -122,13 +105,13 @@ export const samplePosts: SocialPost[] = [
   },
 ];
 
-export const sampleReels: Reel[] = [
-  { id: "r1", userId: "u1", userName: "Priya Sharma", userAvatar: "", videoUrl: "", thumbnailUrl: recipe1, dishName: "Quick Butter Chicken", caption: "60-second butter chicken recipe!", hashtags: ["quickrecipe", "butterchicken"], likes: 1200, comments: 45, liked: false, following: false },
-  { id: "r2", userId: "u2", userName: "Chef Ankit", userAvatar: "", videoUrl: "", thumbnailUrl: recipe2, dishName: "Crispy Dosa Tips", caption: "Secret to the crispiest dosa ever 🤫", hashtags: ["dosa", "cookingtips"], likes: 890, comments: 32, liked: true, following: true },
-  { id: "r3", userId: "u3", userName: "Meera Cooks", userAvatar: "", videoUrl: "", thumbnailUrl: recipe3, dishName: "One-Pot Palak Paneer", caption: "Easiest palak paneer in 15 mins!", hashtags: ["onepot", "easyrecipe"], likes: 2300, comments: 78, liked: false, following: false },
-  { id: "r4", userId: "u4", userName: "Biryani King", userAvatar: "", videoUrl: "", thumbnailUrl: recipe4, dishName: "Layer Biryani ASMR", caption: "Watch those layers come together 🍚", hashtags: ["biryani", "asmr", "cooking"], likes: 5600, comments: 210, liked: false, following: false },
-  { id: "r5", userId: "u5", userName: "Street Food Fan", userAvatar: "", videoUrl: "", thumbnailUrl: recipe6, dishName: "Mumbai Vada Pav", caption: "Authentic Mumbai street style vada pav!", hashtags: ["vadapav", "mumbai", "streetfood"], likes: 3400, comments: 95, liked: true, following: true },
-];
+export const publicUsers: Record<string, { name: string; bio: string; posts: number; followers: number; following: number }> = {
+  u1: { name: "Priya Sharma", bio: "Butter chicken enthusiast 🍗 | Home chef", posts: 42, followers: 890, following: 210 },
+  u2: { name: "Ankit Patel", bio: "South Indian food lover 🥥 | Dosa expert", posts: 38, followers: 1240, following: 340 },
+  u3: { name: "Meera Reddy", bio: "Healthy cooking advocate 🌿 | Spinach queen", posts: 27, followers: 670, following: 190 },
+  u4: { name: "Arjun Nair", bio: "Biryani master 🍚🔥 | Hyderabadi foodie", posts: 56, followers: 2100, following: 420 },
+  u5: { name: "Kavita Joshi", bio: "Street food fan 🛺 | Mumbai ka swaad", posts: 31, followers: 980, following: 260 },
+};
 
 export const sampleBadges: Badge[] = [
   { id: "b1", name: "First Recipe", icon: "🍳", description: "Cook your first recipe", unlocked: true },

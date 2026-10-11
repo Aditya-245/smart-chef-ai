@@ -1,0 +1,12 @@
+import fs from "node:fs";
+import { toObjects } from "./lib/csv.js";
+const { records } = toObjects(fs.readFileSync(new URL("../data/raw/IndianFoodDatasetCSV.csv", import.meta.url), "utf8"));
+const r = records[0];
+const ins = String(r.Instructions);
+console.log("len:", ins.length);
+console.log("newline chars:", (ins.match(/\n/g)||[]).length, " NBSP:", (ins.match(/\u00a0/g)||[]).length, " CR:", (ins.match(/\r/g)||[]).length);
+console.log("first 300 as JSON:", JSON.stringify(ins.slice(0,300)));
+const withSteps = records.filter(x => /\n/.test(String(x.Instructions))).length;
+console.log("rows with newline:", withSteps, "/", records.length);
+const stepMarks = records.filter(x => /\bStep \d/i.test(String(x.Instructions))).length;
+console.log("rows using 'Step N':", stepMarks);
