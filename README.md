@@ -70,11 +70,42 @@ SmartChef AI aims to go beyond being just a recipe generator. It is built to bec
 
 ## 🛠️ Tech Stack
 
-* **Frontend:** React (Next.js), Tailwind CSS
-* **Backend:** Node.js / Firebase
-* **Database:** MongoDB / Firestore
-* **AI Integration:** OpenAI API + Image Recognition APIs
-* **Authentication:** Google OAuth + Email
+* **Frontend:** React + Vite, Tailwind CSS, shadcn/ui, Framer Motion
+* **Backend:** Node.js + Express (single service serves both the API and the built UI)
+* **Search:** Custom TF-IDF retrieval model over 5,999 Indian recipes (`server/model/recipe-model.json`, built via `npm run train`)
+* **AI integration:** OpenAI / Moondream vision API for ingredient photo recognition (`/api/recognize`, configured via `server/.env`)
+
+---
+
+## 🚢 Deployment
+
+The project ships as a single deployable Node service. The Express backend serves the API **and** the built frontend, so one container/process handles everything.
+
+### Locally
+
+```bash
+npm install
+npm run build   # compile the UI into dist/
+npm start       # serves http://localhost:3001 (API + UI)
+```
+
+### Docker
+
+```bash
+docker build -t smart-chef-ai .
+docker run -p 3001:3001 --env-file server/.env smart-chef-ai
+```
+
+Runtime needs:
+
+| Setting | Required | Purpose |
+| --- | --- | --- |
+| `PORT` | optional (default `3001`) | HTTP port for the service |
+| `OPENAI_API_KEY` | if using photo scan | OpenAI vision recognition |
+| `MOONDREAM_API_KEY` | if using photo scan | Moondream vision recognition |
+| `VISION_PROVIDER` | optional | `moondream` (default) or `openai` |
+
+`server/.env.example` documents every variable. Set them as environment variables on your host — do not commit secrets.
 
 ---
 

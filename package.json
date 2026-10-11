@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node server/index.js",
+    "start": "node server/index.js",
     "train": "node server/train.js",
     "harvest-images": "node server/harvest-images.js",
     "build": "vite build",

@@ -2,7 +2,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadModel, matchRecipes, getRecipe, recipeListItem, filterRecipes, normalizeCuisine, attachImageIndex } from "./lib/match.js";
+import { loadModel, matchRecipes, matchAllRecipes, getRecipe, recipeListItem, filterRecipes, normalizeCuisine, attachImageIndex } from "./lib/match.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3001;
@@ -84,6 +84,16 @@ const imageCount = recipeIndex && fs.existsSync(IMAGE_INDEX_PATH)
 
 const app = express();
 app.use(express.json({ limit: "8mb" }));
+
+// In production the built frontend (dist/) is served by this same process so a
+// single Node service handles both the SPA and the API.
+const DIST_DIR = path.join(__dirname, "..", "dist");
+const hasStatic = fs.existsSync(path.join(DIST_DIR, "index.html"));
+if (hasStatic) {
+  app.use(express.static(DIST_DIR));
+} else {
+  console.warn(`[static] ${DIST_DIR} not found - API only. Run "npm run build" to serve the UI too.`);
+}
 
 const isConfigured = () => Boolean(PROVIDERS[resolveProvider()].apiKey());
 
@@ -230,6 +240,59 @@ app.post("/api/match", (req, res) => {
   });
 });
 
+app.post("/api/match-all", (req, res) => {
+  if (!recipeIndex) {
+    return res.status(503).json({
+      error: 'The recipe index is not built. Run "npm run train" in the project root.',
+    });
+  }
+
+  const { ingredients, mode, offset, limit, prefs } = req.body || {};
+  if (!Array.isArray(ingredients) || ingredients.length === 0) {
+    return res.status(400).json({ error: "Provide 'ingredients' as a non-empty array of strings." });
+  }
+  const invalid = ingredients.find((item) => typeof item !== "string");
+  if (invalid !== undefined) {
+    return res.status(400).json({ error: "Every entry in 'ingredients' must be a string." });
+  }
+  if (ingredients.length > 60) {
+    return res.status(413).json({ error: "Too many ingredients. Send at most 60." });
+  }
+  if (mode !== "all" && mode !== "any") {
+    return res.status(400).json({ error: "'mode' must be 'all' or 'any'." });
+  }
+
+  const parsedOffset = Number.parseInt(String(offset), 10);
+  const boundedOffset = Math.max(0, Number.isFinite(parsedOffset) ? parsedOffset : 0);
+  const requested = Number.parseInt(String(limit), 10);
+  const bounded = Math.min(Math.max(Number.isFinite(requested) ? requested : 24, 1), 50);
+  const sanitizedPrefs =
+    prefs && typeof prefs === "object"
+      ? {
+          cuisine: typeof prefs.cuisine === "string" ? prefs.cuisine : undefined,
+          diet: typeof prefs.diet === "string" ? prefs.diet : undefined,
+          maxTotalMinutes: Number(prefs.maxTotalMinutes) || undefined,
+        }
+      : undefined;
+
+  const out = matchAllRecipes(recipeIndex, ingredients, {
+    mode,
+    offset: boundedOffset,
+    limit: bounded,
+    prefs: sanitizedPrefs,
+  });
+
+  res.json({
+    query: ingredients.length,
+    mode,
+    total: out.total,
+    offset: out.offset,
+    limit: out.limit,
+    count: out.count,
+    results: out.results,
+  });
+});
+
 app.get("/api/cuisines", (_req, res) => {
   if (!recipeIndex) {
     return res.status(503).json({
@@ -280,6 +343,15 @@ app.get("/api/recipes/:id", (req, res) => {
   if (!recipe) return res.status(404).json({ error: "No recipe with that id." });
   res.json({ recipe });
 });
+
+// SPA fallback: serve index.html for any client route when running the built UI.
+if (hasStatic) {
+  app.use((req, res, next) => {
+    if (req.method !== "GET") return next();
+    if (req.path === "/api" || req.path.startsWith("/api/")) return next();
+    res.sendFile(path.join(DIST_DIR, "index.html"));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`SmartChef backend listening on http://localhost:${PORT}`);

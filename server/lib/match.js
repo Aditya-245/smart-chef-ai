@@ -84,6 +84,79 @@ export function parseQuery(ingredients) {
   return parsed;
 }
 
+const queryTokenSet = (parsed) => {
+  const tokens = new Set();
+  for (const entry of parsed) for (const token of entry.weights.keys()) tokens.add(token);
+  return tokens;
+};
+
+function buildSummary(context, index, score, parsed) {
+  const { model, tokenSets, ingredientSets } = context;
+  const queryTokens = queryTokenSet(parsed);
+  const recipe = model.recipes[index];
+  const matched = new Set();
+  for (const entry of parsed) {
+    for (const token of entry.weights.keys()) {
+      if (tokenSets[index].has(token)) {
+        matched.add(entry.label);
+        break;
+      }
+    }
+  }
+
+  const missing = [];
+  const seenMissing = new Set();
+  recipe.ingredients.forEach(([canonical], i) => {
+    const label = titleCase(canonical);
+    if (seenMissing.has(label)) return;
+    let has = false;
+    for (const token of ingredientSets[index][i]) {
+      if (queryTokens.has(token)) {
+        has = true;
+        break;
+      }
+    }
+    if (!has) {
+      seenMissing.add(label);
+      missing.push(label);
+    }
+  });
+
+  return {
+    id: recipe.id,
+    title: recipe.title,
+    url: recipe.url,
+    image: recipeImage(context, recipe),
+    score: Math.round(score * 1000) / 1000,
+    cuisine: recipe.cuisine,
+    course: recipe.course,
+    diet: recipe.diet,
+    state: recipe.state,
+    region: recipe.region,
+    prep: recipe.prep,
+    cook: recipe.cook,
+    total: recipe.total,
+    servings: recipe.servings,
+    ingredientCount: recipe.ingredients.length,
+    matched: [...matched],
+    missing,
+  };
+}
+
+function passesPrefs(recipe, prefs) {
+  if (!prefs) return true;
+  const cuisine = String(prefs.cuisine || "").trim().toLowerCase();
+  if (cuisine && normalizeCuisine(recipe.cuisine).toLowerCase() !== cuisine) return false;
+  const diet = String(prefs.diet || "").trim().toLowerCase();
+  if (diet === "veg" && !isVegetarian(recipe.diet)) return false;
+  if (diet === "nonveg" && isVegetarian(recipe.diet)) return false;
+  const maxTotal = Number(prefs.maxTotalMinutes);
+  if (Number.isFinite(maxTotal) && maxTotal > 0 && recipe.total && recipe.total > maxTotal) {
+    return false;
+  }
+  return true;
+}
+
 // True when the recipe uses at least one ingredient that is not in the query.
 function recipeNeedsExtra(ingredientSets, queryTokens) {
   for (const tokens of ingredientSets) {
@@ -144,56 +217,73 @@ export function matchRecipes(context, ingredients, limit = 12, { subset = false 
   ranked.sort((a, b) => b.score - a.score);
   const top = ranked.slice(0, limit);
 
-  return top.map(({ index, score }) => {
+  return top.map(({ index, score }) => buildSummary(context, index, score, parsed));
+}
+
+/**
+ * Classifies every matching recipe into two groups and paginates over one of
+ * them:
+ *   all - contains every listed ingredient, or
+ *   any - contains at least one listed ingredient, excluding the `all` group.
+ * Ranking uses the same cosine x coverage score as `matchRecipes`.
+ */
+export function matchAllRecipes(context, ingredients, { mode = "all", offset = 0, limit = 24, prefs } = {}) {
+  const { model, inverted, tokenSets } = context;
+  const parsed = parseQuery(ingredients);
+  const empty = { total: 0, offset, limit, count: 0, results: [] };
+  if (parsed.length === 0) return empty;
+
+  const queryVector = vectorize(parsed, model.idf);
+  if (!queryVector) return empty;
+
+  const candidates = new Map();
+  for (const [token, weight] of queryVector) {
+    const bucket = inverted.get(token);
+    if (!bucket) continue;
+    for (const [index, docWeight] of bucket) {
+      candidates.set(index, (candidates.get(index) || 0) + weight * docWeight);
+    }
+  }
+  if (candidates.size === 0) return empty;
+
+  const all = [];
+  const any = [];
+  for (const [index, cosine] of candidates) {
+    if (cosine <= 0) continue;
     const recipe = model.recipes[index];
-    const matched = new Set();
+    if (!passesPrefs(recipe, prefs)) continue;
+
+    let covered = 0;
     for (const entry of parsed) {
       for (const token of entry.weights.keys()) {
         if (tokenSets[index].has(token)) {
-          matched.add(entry.label);
+          covered++;
           break;
         }
       }
     }
+    if (covered === 0) continue;
 
-    const missing = [];
-    const seenMissing = new Set();
-    recipe.ingredients.forEach(([canonical], i) => {
-      const label = titleCase(canonical);
-      if (seenMissing.has(label)) return;
-      let has = false;
-      for (const token of ingredientSets[index][i]) {
-        if (queryTokens.has(token)) {
-          has = true;
-          break;
-        }
-      }
-      if (!has) {
-        seenMissing.add(label);
-        missing.push(label);
-      }
-    });
+    const coverage = covered / parsed.length;
+    const score = cosine * (1 - COVERAGE_WEIGHT + COVERAGE_WEIGHT * coverage);
+    if (covered === parsed.length) all.push({ index, score });
+    else any.push({ index, score });
+  }
 
-    return {
-      id: recipe.id,
-      title: recipe.title,
-      url: recipe.url,
-      image: recipeImage(context, recipe),
-      score: Math.round(score * 1000) / 1000,
-      cuisine: recipe.cuisine,
-      course: recipe.course,
-      diet: recipe.diet,
-      state: recipe.state,
-      region: recipe.region,
-      prep: recipe.prep,
-      cook: recipe.cook,
-      total: recipe.total,
-      servings: recipe.servings,
-      ingredientCount: recipe.ingredients.length,
-      matched: [...matched],
-      missing,
-    };
-  });
+  const sortDesc = (a, b) => b.score - a.score;
+  all.sort(sortDesc);
+  any.sort(sortDesc);
+
+  const list = mode === "all" ? all : any;
+  const slice = list.slice(offset, offset + limit);
+
+  return {
+    total: list.length,
+    offset,
+    limit,
+    count: slice.length,
+    results: slice.map(({ index, score }) => buildSummary(context, index, score, parsed)),
+  };
 }
 
 export function getRecipe(context, id) {

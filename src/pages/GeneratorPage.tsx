@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import RecipeCard from "@/components/RecipeCard";
 import type { Recipe } from "@/components/RecipeCard";
 import RecipeDetailModal from "@/components/RecipeDetailModal";
@@ -10,9 +10,7 @@ import {
   detailToRecipe,
   extractIngredients,
   fetchRecipe,
-  isVegetarian,
-  matchRecipes,
-  normalizeCuisine,
+  matchAllRecipes,
   summaryToRecipe,
   type MatchSummary,
 } from "@/lib/api";
@@ -24,13 +22,25 @@ const CUISINES: Record<string, string> = {
   bengali: "Bengali",
 };
 
+const PAGE_SIZE = 24;
+
+interface SectionState {
+  items: MatchSummary[];
+  total: number;
+  hasMore: boolean;
+}
+
+const emptySection: SectionState = { items: [], total: 0, hasMore: false };
+
 const GeneratorPage = () => {
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [activeTerms, setActiveTerms] = useState<string[]>([]);
+  const [allSection, setAllSection] = useState<SectionState>(emptySection);
+  const [anySection, setAnySection] = useState<SectionState>(emptySection);
+  const [loadingMore, setLoadingMore] = useState<"all" | "any" | null>(null);
 
   // Filters
   const [diet, setDiet] = useState("all");
@@ -50,6 +60,30 @@ const GeneratorPage = () => {
     }
   };
 
+  const prefs = {
+    cuisine: cuisine !== "any" ? CUISINES[cuisine] : undefined,
+    diet: diet !== "all" ? (diet as "veg" | "nonveg") : undefined,
+    maxTotalMinutes: time !== "any" ? parseInt(time, 10) : undefined,
+  };
+
+  const fetchSection = async (
+    mode: "all" | "any",
+    offset: number,
+  ): Promise<MatchSummary[]> => {
+    const res = await matchAllRecipes({
+      ingredients: activeTerms,
+      mode,
+      offset,
+      limit: PAGE_SIZE,
+      prefs,
+    });
+    const section = mode === "all" ? allSection : anySection;
+    const setSection = mode === "all" ? setAllSection : setAnySection;
+    const items = offset === 0 ? res.results : [...section.items, ...res.results];
+    setSection({ items, total: res.total, hasMore: offset + res.results.length < res.total });
+    return res.results;
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast.error("Please describe what you want to cook.");
@@ -64,14 +98,32 @@ const GeneratorPage = () => {
 
     setGenerating(true);
     setHasGenerated(true);
-    setMatches([]);
     setActiveTerms(terms);
+    setAllSection(emptySection);
+    setAnySection(emptySection);
 
     try {
-      const { results } = await matchRecipes(terms, 60);
-      setMatches(results);
-      if (results.length === 0) {
-        toast.info("No matches found. Try naming different ingredients.");
+      const fixedPrefs = {
+        cuisine: cuisine !== "any" ? CUISINES[cuisine] : undefined,
+        diet: diet !== "all" ? (diet as "veg" | "nonveg") : undefined,
+        maxTotalMinutes: time !== "any" ? parseInt(time, 10) : undefined,
+      };
+      const [allRes, anyRes] = await Promise.all([
+        matchAllRecipes({ ingredients: terms, mode: "all", offset: 0, limit: PAGE_SIZE, prefs: fixedPrefs }),
+        matchAllRecipes({ ingredients: terms, mode: "any", offset: 0, limit: PAGE_SIZE, prefs: fixedPrefs }),
+      ]);
+      setAllSection({
+        items: allRes.results,
+        total: allRes.total,
+        hasMore: allRes.offset + allRes.results.length < allRes.total,
+      });
+      setAnySection({
+        items: anyRes.results,
+        total: anyRes.total,
+        hasMore: anyRes.offset + anyRes.results.length < anyRes.total,
+      });
+      if (allRes.total === 0 && anyRes.total === 0) {
+        toast.info("No recipes contain those ingredients. Try different names.");
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Recipe service failed.");
@@ -80,16 +132,63 @@ const GeneratorPage = () => {
     }
   };
 
-  const applyFilters = (list: MatchSummary[]) =>
-    list.filter((m) => {
-      if (diet === "veg" && !isVegetarian(m.diet)) return false;
-      if (diet === "nonveg" && isVegetarian(m.diet)) return false;
-      if (time !== "any" && m.total > parseInt(time)) return false;
-      if (cuisine !== "any" && normalizeCuisine(m.cuisine) !== CUISINES[cuisine]) return false;
-      return true;
-    });
+  const loadMore = async (mode: "all" | "any") => {
+    if (loadingMore) return;
+    const section = mode === "all" ? allSection : anySection;
+    if (!section.hasMore) return;
+    setLoadingMore(mode);
+    try {
+      await fetchSection(mode, section.items.length);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load more recipes.");
+    } finally {
+      setLoadingMore(null);
+    }
+  };
 
-  const results = applyFilters(matches).slice(0, 9);
+  const resultsTotal = allSection.total + anySection.total;
+
+  const renderSection = (mode: "all" | "any", title: string, section: SectionState) => {
+    if (section.total === 0) return null;
+    return (
+      <div className="mt-8">
+        <div className="flex items-baseline justify-between mb-1">
+          <h2 className="text-lg font-bold text-foreground">{title}</h2>
+          <span className="text-xs text-muted-foreground">{section.total} recipes</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-3">
+          {section.items.map((summary, i) => {
+            const recipe = summaryToRecipe(summary);
+            return (
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                index={i % 12}
+                onClick={() => void openRecipe(summary)}
+              />
+            );
+          })}
+        </div>
+        {section.hasMore && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={() => void loadMore(mode)}
+              disabled={loadingMore === mode}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors disabled:opacity-60"
+            >
+              {loadingMore === mode ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+                </>
+              ) : (
+                <>Load more ({section.total - section.items.length} left)</>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen pt-20 pb-24 md:pb-8">
@@ -169,8 +268,8 @@ const GeneratorPage = () => {
           >
             {generating ? (
               <>
-                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                Matching 5,999 recipes...
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Finding every recipe with your ingredients...
               </>
             ) : (
               <>
@@ -191,44 +290,19 @@ const GeneratorPage = () => {
         )}
 
         {/* Results */}
-        {results.length > 0 && !generating && (
+        {hasGenerated && resultsTotal > 0 && !generating && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8">
-            <div className="flex items-baseline justify-between mb-2">
-              <h2 className="text-lg font-bold text-foreground">
-                {hasGenerated ? "Generated Recipes ✨" : "Suggested Recipes"}
-              </h2>
-              <span className="text-xs text-muted-foreground">{results.length} matches</span>
-            </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Found ingredients: <span className="font-medium text-foreground">{activeTerms.join(", ")}</span>
+              Found ingredients:{" "}
+              <span className="font-medium text-foreground">{activeTerms.join(", ")}</span>
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {results.map((summary, i) => {
-                const recipe = summaryToRecipe(summary);
-                return (
-                  <RecipeCard
-                    key={recipe.id}
-                    recipe={recipe}
-                    index={i}
-                    onClick={() => void openRecipe(summary)}
-                  />
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Empty state after generation */}
-        {hasGenerated && matches.length > 0 && results.length === 0 && !generating && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8 text-center py-12">
-            <p className="text-4xl mb-3">🍳</p>
-            <p className="text-sm font-medium text-foreground">No recipes match your filters</p>
-            <p className="text-xs text-muted-foreground mt-1">Try adjusting your preferences</p>
+            {renderSection("all", "Uses all your ingredients", allSection)}
+            {renderSection("any", "Contains any of your ingredients", anySection)}
           </motion.div>
         )}
 
         {/* Empty state when nothing matched the ingredients */}
-        {hasGenerated && matches.length === 0 && !generating && (
+        {hasGenerated && resultsTotal === 0 && !generating && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8 text-center py-12">
             <p className="text-4xl mb-3">🧺</p>
             <p className="text-sm font-medium text-foreground">We couldn't find recipes for those ingredients</p>

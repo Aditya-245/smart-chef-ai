@@ -51,6 +51,32 @@ export interface MatchResponse {
   results: MatchSummary[];
 }
 
+export type MatchAllMode = "all" | "any";
+
+export interface MatchAllPrefs {
+  cuisine?: string;
+  diet?: "veg" | "nonveg";
+  maxTotalMinutes?: number;
+}
+
+export interface MatchAllRequest {
+  ingredients: string[];
+  mode: MatchAllMode;
+  offset?: number;
+  limit?: number;
+  prefs?: MatchAllPrefs;
+}
+
+export interface MatchAllResponse {
+  query: number;
+  mode: MatchAllMode;
+  total: number;
+  offset: number;
+  limit: number;
+  count: number;
+  results: MatchSummary[];
+}
+
 export interface RecipeListItem {
   id: number;
   title: string;
@@ -191,6 +217,9 @@ const postJson = <T>(url: string, body: unknown) =>
 
 export const matchRecipes = (ingredients: string[], limit = 12, subset = false) =>
   postJson<MatchResponse>("/api/match", { ingredients, limit, subset });
+
+export const matchAllRecipes = (request: MatchAllRequest) =>
+  postJson<MatchAllResponse>("/api/match-all", request);
 
 export const fetchRecipe = (id: number | string) =>
   requestJson<{ recipe: ApiRecipe }>(`/api/recipes/${encodeURIComponent(id)}`).then(
